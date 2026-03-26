@@ -3,107 +3,85 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Radio Player PRO</title>
+
+<title>Radio PRO</title>
 
 <style>
 body {
-    margin: 0;
-    background: #000;
-    font-family: 'Arial', sans-serif;
-    color: white;
+    margin:0;
+    background:#0a0a0a;
+    font-family:Arial;
+    color:#fff;
 }
 
-/* Container */
+/* Player */
 .player {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 20px;
-}
-
-/* Topo */
-.top {
-    text-align: center;
-}
-
-.radio {
-    font-size: 20px;
-    font-weight: bold;
+    max-width:350px;
+    margin:20px auto;
+    background:#111;
+    border-radius:30px;
+    padding:20px;
+    box-shadow:0 0 50px rgba(0,0,0,0.8);
 }
 
 /* Capa */
 .cover {
-    width: 100%;
-    max-width: 300px;
-    height: 300px;
-    margin: 20px auto;
-    border-radius: 20px;
-    background: url('https://i.imgur.com/8Km9tLL.jpg') center/cover;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+    width:100%;
+    height:250px;
+    border-radius:25px;
+    background:url('https://i.imgur.com/8Km9tLL.jpg') center/cover;
 }
 
 /* Música */
-.song {
-    text-align: center;
-}
+.title { font-size:18px; margin-top:10px; }
+.artist { font-size:13px; color:#aaa; }
 
-.title {
-    font-size: 18px;
-    font-weight: bold;
-}
-
-.artist {
-    font-size: 14px;
-    color: #aaa;
-}
-
-/* Controles */
+/* Botões */
 .controls {
-    text-align: center;
+    display:flex;
+    justify-content:space-around;
+    margin-top:15px;
 }
 
-.play {
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    border: none;
-    background: #1db954;
-    color: white;
-    font-size: 26px;
+button {
+    background:#1db954;
+    border:none;
+    padding:10px;
+    border-radius:50%;
+    color:#fff;
+    font-size:18px;
 }
 
-/* Equalizador */
-.equalizer {
-    display: flex;
-    justify-content: center;
-    gap: 4px;
-    margin-top: 15px;
+/* Chat */
+.chat {
+    margin-top:20px;
+    background:#000;
+    border-radius:20px;
+    padding:10px;
+    height:200px;
+    overflow-y:auto;
 }
 
-.bar {
-    width: 4px;
-    height: 20px;
-    background: #1db954;
-    animation: bounce 1s infinite ease-in-out;
+.input {
+    display:flex;
+    margin-top:10px;
 }
 
-.bar:nth-child(2) { animation-delay: .2s; }
-.bar:nth-child(3) { animation-delay: .4s; }
-.bar:nth-child(4) { animation-delay: .6s; }
-
-@keyframes bounce {
-    0%,100% { height: 10px; }
-    50% { height: 30px; }
+input {
+    flex:1;
+    padding:10px;
+    border:none;
+    border-radius:10px;
 }
 
-/* Volume */
-.volume {
-    width: 100%;
+.send {
+    margin-left:5px;
 }
 
-input[type=range] {
-    width: 100%;
+/* Histórico */
+.history {
+    margin-top:15px;
+    font-size:12px;
 }
 </style>
 </head>
@@ -112,112 +90,127 @@ input[type=range] {
 
 <div class="player">
 
-    <div class="top">
-        <div class="radio">🔥 Minha Rádio</div>
-    </div>
+<div class="cover" id="cover"></div>
 
-    <div>
-        <div class="cover" id="cover"></div>
+<div class="title" id="title">Carregando...</div>
+<div class="artist" id="artist"></div>
 
-        <div class="song">
-            <div class="title" id="title">Carregando...</div>
-            <div class="artist" id="artist"></div>
-        </div>
+<div class="controls">
+    <button onclick="toggle()">▶</button>
+    <button onclick="like()">❤️</button>
+</div>
 
-        <div class="equalizer">
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-        </div>
-    </div>
+<div class="chat" id="chat"></div>
 
-    <div class="controls">
-        <button class="play" id="play">▶</button>
+<div class="input">
+    <input id="msg" placeholder="Digite...">
+    <button class="send" onclick="send()">➤</button>
+</div>
 
-        <div class="volume">
-            <input type="range" id="volume" min="0" max="1" step="0.01" value="1">
-        </div>
-    </div>
+<div class="history" id="history"></div>
 
 </div>
 
 <audio id="audio" src="https://s01.svrdedicado.org:7956/stream"></audio>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
 <script>
+// CONFIG FIREBASE (CRIE O SEU NO firebase.google.com)
+const firebaseConfig = {
+    apiKey: "SUA_KEY",
+    databaseURL: "SUA_URL"
+};
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.database();
+
 const audio = document.getElementById("audio");
-const playBtn = document.getElementById("play");
-const volume = document.getElementById("volume");
-
-const titleEl = document.getElementById("title");
-const artistEl = document.getElementById("artist");
-const coverEl = document.getElementById("cover");
-
 let playing = false;
 
-// ▶ Play
-playBtn.onclick = () => {
-    if (playing) {
+function toggle(){
+    if(playing){
         audio.pause();
-        playBtn.innerHTML = "▶";
-    } else {
+    }else{
         audio.play();
-        playBtn.innerHTML = "⏸";
     }
-    playing = !playing;
-};
+    playing=!playing;
+}
 
-// 🔊 Volume
-volume.oninput = () => {
-    audio.volume = volume.value;
-};
+// 🎵 música atual
+async function getSong(){
+    let res = await fetch("https://s01.svrdedicado.org:7956/status-json.xsl");
+    let data = await res.json();
 
-// 🎵 Pegar música atual (Icecast)
-async function getSong() {
-    try {
-        const res = await fetch("https://s01.svrdedicado.org:7956/status-json.xsl");
-        const data = await res.json();
+    let s = data.icestats.source;
+    if(Array.isArray(s)) s=s[0];
 
-        let stream = data.icestats.source;
+    let song = s.title || "Ao vivo";
 
-        if (Array.isArray(stream)) stream = stream[0];
+    let artist="", title=song;
+    if(song.includes(" - ")){
+        artist=song.split(" - ")[0];
+        title=song.split(" - ")[1];
+    }
 
-        let song = stream.title || "Ao vivo";
+    document.getElementById("title").innerText=title;
+    document.getElementById("artist").innerText=artist;
 
-        // Separar artista e música
-        let artist = "";
-        let title = song;
+    addHistory(song);
+    getCover(song);
+}
 
-        if (song.includes(" - ")) {
-            artist = song.split(" - ")[0];
-            title = song.split(" - ")[1];
-        }
-
-        titleEl.innerText = title;
-        artistEl.innerText = artist;
-
-        getCover(artist + " " + title);
-
-    } catch (e) {
-        titleEl.innerText = "Rádio ao vivo 🔴";
+// 🖼️ capa
+async function getCover(q){
+    let res = await fetch("https://itunes.apple.com/search?term="+q);
+    let d = await res.json();
+    if(d.results.length>0){
+        document.getElementById("cover").style.backgroundImage=
+        "url("+d.results[0].artworkUrl100.replace("100x100","500x500")+")";
     }
 }
 
-// 🖼️ Buscar capa automática
-async function getCover(query) {
-    try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&limit=1`);
-        const data = await res.json();
-
-        if (data.results.length > 0) {
-            let img = data.results[0].artworkUrl100.replace("100x100", "500x500");
-            coverEl.style.backgroundImage = `url(${img})`;
-        }
-    } catch (e) {}
+// ❤️ like
+function like(){
+    db.ref("likes").push({
+        song: document.getElementById("title").innerText
+    });
+    alert("Curtido!");
 }
 
-// 🔄 Atualizar a cada 10s
-setInterval(getSong, 10000);
+// 💬 chat
+function send(){
+    let text=document.getElementById("msg").value;
+    db.ref("chat").push({msg:text});
+    document.getElementById("msg").value="";
+}
+
+db.ref("chat").on("child_added", snap=>{
+    let div=document.getElementById("chat");
+    div.innerHTML+="<div>"+snap.val().msg+"</div>";
+    div.scrollTop=div.scrollHeight;
+});
+
+// 🕘 histórico
+let hist=[];
+function addHistory(song){
+    if(hist.includes(song)) return;
+    hist.unshift(song);
+    hist=hist.slice(0,5);
+
+    document.getElementById("history").innerHTML=
+        "<b>Últimas:</b><br>"+hist.join("<br>");
+}
+
+// 🔐 proteção básica
+document.oncontextmenu=()=>false;
+document.onkeydown=e=>{
+    if(e.keyCode==123) return false;
+};
+
+setInterval(getSong,10000);
 getSong();
 </script>
 
