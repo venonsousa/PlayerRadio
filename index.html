@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radio Player PRO</title>
+
+<style>
+body {
+    margin: 0;
+    background: #000;
+    font-family: 'Arial', sans-serif;
+    color: white;
+}
+
+/* Container */
+.player {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+}
+
+/* Topo */
+.top {
+    text-align: center;
+}
+
+.radio {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* Capa */
+.cover {
+    width: 100%;
+    max-width: 300px;
+    height: 300px;
+    margin: 20px auto;
+    border-radius: 20px;
+    background: url('https://i.imgur.com/8Km9tLL.jpg') center/cover;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+}
+
+/* Música */
+.song {
+    text-align: center;
+}
+
+.title {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.artist {
+    font-size: 14px;
+    color: #aaa;
+}
+
+/* Controles */
+.controls {
+    text-align: center;
+}
+
+.play {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: none;
+    background: #1db954;
+    color: white;
+    font-size: 26px;
+}
+
+/* Equalizador */
+.equalizer {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 15px;
+}
+
+.bar {
+    width: 4px;
+    height: 20px;
+    background: #1db954;
+    animation: bounce 1s infinite ease-in-out;
+}
+
+.bar:nth-child(2) { animation-delay: .2s; }
+.bar:nth-child(3) { animation-delay: .4s; }
+.bar:nth-child(4) { animation-delay: .6s; }
+
+@keyframes bounce {
+    0%,100% { height: 10px; }
+    50% { height: 30px; }
+}
+
+/* Volume */
+.volume {
+    width: 100%;
+}
+
+input[type=range] {
+    width: 100%;
+}
+</style>
+</head>
+
+<body>
+
+<div class="player">
+
+    <div class="top">
+        <div class="radio">🔥 Minha Rádio</div>
+    </div>
+
+    <div>
+        <div class="cover" id="cover"></div>
+
+        <div class="song">
+            <div class="title" id="title">Carregando...</div>
+            <div class="artist" id="artist"></div>
+        </div>
+
+        <div class="equalizer">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="play" id="play">▶</button>
+
+        <div class="volume">
+            <input type="range" id="volume" min="0" max="1" step="0.01" value="1">
+        </div>
+    </div>
+
+</div>
+
+<audio id="audio" src="https://s01.svrdedicado.org:7956/stream"></audio>
+
+<script>
+const audio = document.getElementById("audio");
+const playBtn = document.getElementById("play");
+const volume = document.getElementById("volume");
+
+const titleEl = document.getElementById("title");
+const artistEl = document.getElementById("artist");
+const coverEl = document.getElementById("cover");
+
+let playing = false;
+
+// ▶ Play
+playBtn.onclick = () => {
+    if (playing) {
+        audio.pause();
+        playBtn.innerHTML = "▶";
+    } else {
+        audio.play();
+        playBtn.innerHTML = "⏸";
+    }
+    playing = !playing;
+};
+
+// 🔊 Volume
+volume.oninput = () => {
+    audio.volume = volume.value;
+};
+
+// 🎵 Pegar música atual (Icecast)
+async function getSong() {
+    try {
+        const res = await fetch("https://s01.svrdedicado.org:7956/status-json.xsl");
+        const data = await res.json();
+
+        let stream = data.icestats.source;
+
+        if (Array.isArray(stream)) stream = stream[0];
+
+        let song = stream.title || "Ao vivo";
+
+        // Separar artista e música
+        let artist = "";
+        let title = song;
+
+        if (song.includes(" - ")) {
+            artist = song.split(" - ")[0];
+            title = song.split(" - ")[1];
+        }
+
+        titleEl.innerText = title;
+        artistEl.innerText = artist;
+
+        getCover(artist + " " + title);
+
+    } catch (e) {
+        titleEl.innerText = "Rádio ao vivo 🔴";
+    }
+}
+
+// 🖼️ Buscar capa automática
+async function getCover(query) {
+    try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&limit=1`);
+        const data = await res.json();
+
+        if (data.results.length > 0) {
+            let img = data.results[0].artworkUrl100.replace("100x100", "500x500");
+            coverEl.style.backgroundImage = `url(${img})`;
+        }
+    } catch (e) {}
+}
+
+// 🔄 Atualizar a cada 10s
+setInterval(getSong, 10000);
+getSong();
+</script>
+
+</body>
+</html>
